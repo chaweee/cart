@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tailwind Cart</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen antialiased text-gray-800">
+
+  <header class="bg-white shadow-sm sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+      <div class="flex items-center gap-4">
+        <h1 class="text-xl font-semibold">Boss Toyo Shop</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button class="relative inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 6h14"></path></svg>
+          <span class="text-sm">2</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Products -->
+    <section class="lg:col-span-3">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <template id="product-template">
+          <div class="bg-white p-4 rounded-lg shadow-sm flex flex-col">
+            <img class="product-img mb-4 rounded-md shadow h-60 w-full object-cover cursor-pointer" src="" alt="">
+            <h3 class="font-medium text-lg mb-1"></h3>
+            <div class="mt-auto flex items-center justify-between">
+              <div class="text-lg font-semibold text-indigo-600"></div>
+              <button class="add-btn px-3 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none">Add</button>
+            </div>
+          </div>
+        </template>
+        <!-- Products will be rendered here by JS -->
+      </div>
+    </section>
+
+    <!-- Cart panel (dynamic, narrow) -->
+    <aside id="cart-panel" class="bg-white rounded-lg shadow p-6 sticky top-24 lg:col-span-1 w-full lg:w-80">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-lg font-semibold">Cart</h2>
+        <button id="clear-cart" class="text-sm text-red-600 hover:underline">Clear</button>
+      </div>
+      <div id="cart-items" class="space-y-4 min-h-[150px]">
+        <p class="text-sm text-gray-500">Your cart is empty.</p>
+      </div>
+      <div class="border-t pt-6 mt-6">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-sm text-gray-600">Subtotal</span>
+          <span id="cart-subtotal" class="text-lg font-semibold">$0.00</span>
+        </div>
+        <button id="checkout" class="w-full py-3 rounded-md bg-green-600 text-white hover:bg-green-700 focus:outline-none">Checkout</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Image Popup Modal -->
+  <div id="image-popup" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="relative">
+      <img id="popup-image" class="max-w-full max-h-screen rounded-md" src="" alt="">
+      <button id="close-popup" class="absolute top-2 right-2 text-white text-xl font-bold">&times;</button>
+    </div>
+  </div>
+
+  <script>
+    // Product data
+    const products = [
+      { id: 'p1', title: 'Sapatos ng mga Siga', price: 2500, img: 'assets/2.jpg' },
+      { id: 'p2', title: 'Wallet ng Gutom', price: 300, img: 'assets/3.jpg' },
+      { id: 'p3', title: 'Earbuds ng Higante', price: 1000, img: 'assets/1.jpg' },
+      { id: 'p4', title: 'Bag ng Unggoy', price: 1500, img: 'assets/4.jpg' },
+      { id: 'p5', title: 'Relo ni Bossing', price: 2000, img: 'assets/5.jpg' },
+      { id: 'p6', title: 'Short pang Tanga', price: 800, img: 'assets/6.jpg' }
+    ];
+
+    // Cart stored as { id: qty }
+    const CART_KEY = 'tailwind_cart_v1';
+    let cart = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
+
+    // Elements
+    const prodTemplate = document.getElementById('product-template');
+    const productsGrid = prodTemplate.parentElement;
+    const cartItemsEl = document.getElementById('cart-items');
+    const cartSubtotalEl = document.getElementById('cart-subtotal');
+    const clearCartBtn = document.getElementById('clear-cart');
+    const checkoutBtn = document.getElementById('checkout');
+    const imagePopup = document.getElementById('image-popup');
+    const popupImage = document.getElementById('popup-image');
+    const closePopup = document.getElementById('close-popup');
+
+    // Helper function to format prices as PHP
+    const formatPrice = (price) => {
+      return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(price);
+    };
+
+    // Render product cards
+    function renderProducts() {
+      products.forEach(p => {
+        const node = prodTemplate.content.cloneNode(true);
+        const card = node.querySelector('div');
+        const img = card.querySelector('.product-img');
+        img.src = p.img;
+        img.alt = p.title;
+        img.addEventListener('click', () => showImagePopup(p.img)); // Add click event to show popup
+        card.querySelector('h3').textContent = p.title;
+        card.querySelector('.text-indigo-600').textContent = formatPrice(p.price);
+        const btn = card.querySelector('.add-btn');
+        btn.addEventListener('click', () => addToCart(p.id));
+        productsGrid.appendChild(node);
+      });
+    }
+
+    function showImagePopup(src) {
+      popupImage.src = src;
+      imagePopup.classList.remove('hidden');
+    }
+
+    closePopup.addEventListener('click', () => {
+      imagePopup.classList.add('hidden');
+    });
+
+    function saveCart() {
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    }
+
+    function addToCart(id, qty = 1) {
+      cart[id] = (cart[id] || 0) + qty;
+      updateCartUI();
+      saveCart();
+    }
+
+    function setQuantity(id, qty) {
+      if (qty <= 0) {
+        delete cart[id];
+      } else {
+        cart[id] = qty;
+      }
+      updateCartUI();
+      saveCart();
+    }
+
+    function removeFromCart(id) {
+      delete cart[id];
+      updateCartUI();
+      saveCart();
+    }
+
+    function clearCart() {
+      cart = {};
+      updateCartUI();
+      saveCart();
+    }
+
+    function getCartItemsDetailed() {
+      return Object.entries(cart).map(([id, qty]) => {
+        const p = products.find(x => x.id === id);
+        return { ...p, qty, total: p.price * qty };
+      });
+    }
+
+    function getTotal() {
+      return getCartItemsDetailed().reduce((s, it) => s + it.total, 0);
+    }
+
+    function updateCartUI() {
+      const items = getCartItemsDetailed();
+      cartItemsEl.innerHTML = '';
+      if (items.length === 0) {
+        cartItemsEl.innerHTML = '<p class="text-sm text-gray-500">Your cart is empty.</p>';
+      } else {
+        items.forEach(it => {
+          const el = document.createElement('div');
+          el.className = 'flex items-start gap-3 bg-gray-50 p-2 rounded-md';
+          el.innerHTML = `
+            <div class="flex gap-3">
+              <img class="w-20 h-20 rounded-md object-cover" src="${it.img}" alt="${it.title}">
+              <div class="flex flex-col justify-between">
+                <div class="font-medium text-sm">${it.title}</div>
+                <div class="text-xs text-gray-500">${formatPrice(it.price)}</div>
+              </div>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+              <div class="flex items-center rounded-md overflow-hidden border">
+                <button data-id="${it.id}" class="qty-btn px-2 py-1 text-sm bg-white hover:bg-gray-100">-</button>
+                <div class="px-3 text-sm">${it.qty}</div>
+                <button data-id="${it.id}" class="qty-btn px-2 py-1 text-sm bg-white hover:bg-gray-100">+</button>
+              </div>
+              <div class="text-sm font-medium">${formatPrice(it.total)}</div>
+              <button data-id="${it.id}" class="remove-btn text-red-600 text-sm hover:underline">Remove</button>
+            </div>
+          `;
+          cartItemsEl.appendChild(el);
+        });
+
+        // Attach listeners for quantity buttons and remove buttons
+        cartItemsEl.querySelectorAll('.qty-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const id = btn.getAttribute('data-id');
+            const sign = btn.textContent.trim() === '+' ? 1 : -1;
+            setQuantity(id, (cart[id] || 0) + sign);
+          });
+        });
+        cartItemsEl.querySelectorAll('.remove-btn').forEach(btn => {
+          btn.addEventListener('click', () => removeFromCart(btn.getAttribute('data-id')));
+        });
+      }
+      cartSubtotalEl.textContent = formatPrice(getTotal());
+    }
+
+    clearCartBtn.addEventListener('click', () => {
+      if (confirm('Clear cart?')) clearCart();
+    });
+
+    checkoutBtn.addEventListener('click', () => {
+      const total = getTotal();
+      if (total === 0) return alert('Your cart is empty.');
+      alert(`Checkout - total: $${total.toFixed(2)}\n(Example only)`);
+      clearCart();
+    });
+
+    // init
+    renderProducts();
+    updateCartUI();
+  </script>
+</body>
+</html>
